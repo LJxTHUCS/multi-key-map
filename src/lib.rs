@@ -15,7 +15,7 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
     ///
     /// ```
     /// use multi_key_map::MultiKeyMap;
-    /// 
+    ///
     /// let map: MultiKeyMap<&str, &str> = MultiKeyMap::new();
     /// ```
     pub fn new() -> Self {
@@ -37,7 +37,7 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
     ///
     /// ```
     /// use multi_key_map::MultiKeyMap;
-    /// 
+    ///
     /// let mut map = MultiKeyMap::new();
     /// map.insert("key1", "value1");
     /// assert_eq!(map.get(&"key1"), Some(&"value1"));
@@ -60,7 +60,7 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
     ///
     /// ```
     /// use multi_key_map::MultiKeyMap;
-    /// 
+    ///
     /// let mut map = MultiKeyMap::new();
     /// map.insert("key1", "value1");
     /// if let Some(value) = map.get_mut(&"key1") {
@@ -85,7 +85,7 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
     ///
     /// ```
     /// use multi_key_map::MultiKeyMap;
-    /// 
+    ///
     /// let mut map = MultiKeyMap::new();
     /// map.insert("key1", "value1");
     /// ```
@@ -97,7 +97,7 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
 
     /// Adds a new alias key for the element at `key`.
     ///
-    /// Returns `true` if the alias is successfully added.
+    /// Returns the reference count if the alias is successfully added.
     ///
     /// # Arguments
     ///
@@ -108,28 +108,28 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
     ///
     /// ```
     /// use multi_key_map::MultiKeyMap;
-    /// 
+    ///
     /// let mut map = MultiKeyMap::new();
     /// map.insert("key1", "value1");
-    /// assert!(map.alias(&"key1", "alias1"));
+    /// assert_eq!(map.alias(&"key1", "alias1"), Some(2));
     /// ```
-    pub fn alias(&mut self, key: &K, alias: K) -> bool {
+    pub fn alias(&mut self, key: &K, alias: K) -> Option<usize> {
         if key == &alias {
             // Do not allow aliasing the same key
-            return false;
+            return None;
         }
         if let Some(&index) = self.key_map.get(key) {
             self.key_map.insert(alias, index);
-            true
+            Some(self.count_references(index))
         } else {
-            false
+            None
         }
     }
 
     /// Removes an alias key.
     ///
+    /// Returns the reference count if the alias is successfully removed.
     /// If the last alias is removed, the value is also removed.
-    /// Returns `true` if the alias is successfully removed.
     ///
     /// # Arguments
     ///
@@ -139,24 +139,17 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
     ///
     /// ```
     /// use multi_key_map::MultiKeyMap;
-    /// 
+    ///
     /// let mut map = MultiKeyMap::new();
     /// map.insert("key1", "value1");
     /// map.alias(&"key1", "alias1");
-    /// assert!(map.remove_alias(&"alias1"));
+    /// assert_eq!(map.remove_alias(&"alias1"), Some(1));
     /// ```
-    pub fn remove_alias(&mut self, alias: &K) -> bool {
+    pub fn remove_alias(&mut self, alias: &K) -> Option<usize> {
         if let Some(&index) = self.key_map.get(alias) {
-            let keys_with_index: Vec<K> = self
-                .key_map
-                .iter()
-                .filter_map(|(k, &v)| if v == index { Some(k.clone()) } else { None })
-                .collect();
-            if keys_with_index.len() > 1 {
-                self.key_map.remove(alias);
-                true
-            } else {
-                self.key_map.remove(alias);
+            self.key_map.remove(alias);
+            let remaining_references = self.count_references(index);
+            if remaining_references == 0 {
                 self.values.swap_remove(index);
                 // Update the indices for the remaining values
                 if index != self.values.len() {
@@ -172,10 +165,10 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
                         self.key_map.insert(key, index);
                     }
                 }
-                true
             }
+            Some(remaining_references)
         } else {
-            false
+            None
         }
     }
 
@@ -191,7 +184,7 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
     ///
     /// ```
     /// use multi_key_map::MultiKeyMap;
-    /// 
+    ///
     /// let mut map = MultiKeyMap::new();
     /// map.insert("key1", "value1");
     /// assert_eq!(map.remove(&"key1"), Some("value1"));
@@ -238,7 +231,7 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
     ///
     /// ```
     /// use multi_key_map::MultiKeyMap;
-    /// 
+    ///
     /// let mut map = MultiKeyMap::new();
     /// map.insert("key1", "value1");
     /// assert!(map.contains_key(&"key1"));
@@ -254,7 +247,7 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
     ///
     /// ```
     /// use multi_key_map::MultiKeyMap;
-    /// 
+    ///
     /// let mut map = MultiKeyMap::new();
     /// map.insert("key1", "value1");
     /// assert_eq!(map.len(), 1);
@@ -269,7 +262,7 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
     ///
     /// ```
     /// use multi_key_map::MultiKeyMap;
-    /// 
+    ///
     /// let map: MultiKeyMap<&str, &str> = MultiKeyMap::new();
     /// assert!(map.is_empty());
     /// ```
@@ -283,7 +276,7 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
     ///
     /// ```
     /// use multi_key_map::MultiKeyMap;
-    /// 
+    ///
     /// let mut map = MultiKeyMap::new();
     /// map.insert("key1", "value1");
     /// map.clear();
@@ -292,6 +285,11 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
     pub fn clear(&mut self) {
         self.key_map.clear();
         self.values.clear();
+    }
+
+    /// Counts the number of references to a particular value index.
+    fn count_references(&self, index: usize) -> usize {
+        self.key_map.values().filter(|&&i| i == index).count()
     }
 }
 
@@ -308,7 +306,7 @@ impl<K: Eq + Hash + Clone + Debug, V: Debug> Debug for MultiKeyMap<K, V> {
     ///
     /// ```
     /// use multi_key_map::MultiKeyMap;
-    /// 
+    ///
     /// let mut map = MultiKeyMap::new();
     /// map.insert("key1", "value1");
     /// println!("{:?}", map);
@@ -340,7 +338,7 @@ impl<K: Eq + Hash, V: PartialEq> PartialEq for MultiKeyMap<K, V> {
     ///
     /// ```
     /// use multi_key_map::MultiKeyMap;
-    /// 
+    ///
     /// let mut map1 = MultiKeyMap::new();
     /// map1.insert("key1", "value1");
     /// map1.alias(&"key1", "alias1");
@@ -385,7 +383,7 @@ impl<K: Eq + Hash + Clone + Debug, V: Clone + Debug> Clone for MultiKeyMap<K, V>
     ///
     /// ```
     /// use multi_key_map::MultiKeyMap;
-    /// 
+    ///
     /// let mut original = MultiKeyMap::new();
     /// original.insert("key1", "value1");
     /// original.alias(&"key1", "alias1");
