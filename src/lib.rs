@@ -153,16 +153,16 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
                 self.values.swap_remove(index);
                 // Update the indices for the remaining values
                 if index != self.values.len() {
-                    let last_index = self.values.len();
-                    let last_value_key = self.key_map.iter().find_map(|(k, &v)| {
-                        if v == last_index {
-                            Some(k.clone())
-                        } else {
-                            None
-                        }
-                    });
-                    if let Some(key) = last_value_key {
-                        self.key_map.insert(key, index);
+                    // Last index is swaped to the removed index
+                    let last_value_keys = self
+                        .key_map
+                        .iter()
+                        .filter(|(_, &v)| v == self.values.len())
+                        .map(|(k, _)| k.clone())
+                        .collect::<Vec<_>>();
+                    // Update the index for the keys
+                    for k in last_value_keys {
+                        self.key_map.insert(k, index);
                     }
                 }
             }
