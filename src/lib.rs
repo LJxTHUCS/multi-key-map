@@ -111,9 +111,9 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
     ///
     /// let mut map = MultiKeyMap::new();
     /// map.insert("key1", "value1");
-    /// assert_eq!(map.alias(&"key1", "alias1"), Some(2));
+    /// assert_eq!(map.insert_alias(&"key1", "alias1"), Some(2));
     /// ```
-    pub fn alias(&mut self, key: &K, alias: K) -> Option<usize> {
+    pub fn insert_alias(&mut self, key: &K, alias: K) -> Option<usize> {
         if key == &alias {
             // Do not allow aliasing the same key
             return None;
@@ -142,7 +142,7 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
     ///
     /// let mut map = MultiKeyMap::new();
     /// map.insert("key1", "value1");
-    /// map.alias(&"key1", "alias1");
+    /// map.insert_alias(&"key1", "alias1");
     /// assert_eq!(map.remove_alias(&"alias1"), Some(1));
     /// ```
     pub fn remove_alias(&mut self, alias: &K) -> Option<usize> {
@@ -219,6 +219,54 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
         } else {
             None
         }
+    }
+    /// Retrieves all aliases (including the key itself) for a given key.
+    ///
+    /// Returns a vector of all keys associated with the value of the specified key.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key to retrieve aliases for.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use multi_key_map::MultiKeyMap;
+    ///
+    /// let mut map = MultiKeyMap::new();
+    /// map.insert("key1", "value1");
+    /// map.insert_alias(&"key1", "alias1");
+    /// let mut aliases = map.aliases(&"key1").unwrap();
+    /// aliases.sort();
+    ///
+    /// assert_eq!(aliases, vec!["alias1", "key1"]);
+    /// ```
+    pub fn aliases(&self, key: &K) -> Option<Vec<K>> {
+        self.key_map.get(key).map(|&index| {
+            self.key_map
+                .iter()
+                .filter_map(|(k, &v)| if v == index { Some(k.clone()) } else { None })
+                .collect()
+        })
+    }
+
+    /// Retrieves all keys in the map.
+    ///
+    /// Returns a vector of keys.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use multi_key_map::MultiKeyMap;
+    ///
+    /// let mut map = MultiKeyMap::new();
+    /// map.insert("key1", "value1");
+    /// map.insert_alias(&"key1", "alias1");
+    /// let keys = map.keys();
+    /// assert_eq!(keys, vec!["key1", "alias1"]);
+    /// ```
+    pub fn keys(&self) -> Vec<K> {
+        self.key_map.keys().cloned().collect()
     }
 
     /// Checks if a key exists in the map.
@@ -341,11 +389,11 @@ impl<K: Eq + Hash, V: PartialEq> PartialEq for MultiKeyMap<K, V> {
     ///
     /// let mut map1 = MultiKeyMap::new();
     /// map1.insert("key1", "value1");
-    /// map1.alias(&"key1", "alias1");
+    /// map1.insert_alias(&"key1", "alias1");
     ///
     /// let mut map2 = MultiKeyMap::new();
     /// map2.insert("key1", "value1");
-    /// map2.alias(&"key1", "alias1");
+    /// map2.insert_alias(&"key1", "alias1");
     ///
     /// assert_eq!(map1, map2);  // Should be true because both maps have the same keys and values.
     ///
@@ -386,7 +434,7 @@ impl<K: Eq + Hash + Clone + Debug, V: Clone + Debug> Clone for MultiKeyMap<K, V>
     ///
     /// let mut original = MultiKeyMap::new();
     /// original.insert("key1", "value1");
-    /// original.alias(&"key1", "alias1");
+    /// original.insert_alias(&"key1", "alias1");
     ///
     /// let clone = original.clone();
     ///
