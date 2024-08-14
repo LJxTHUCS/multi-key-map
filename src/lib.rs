@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{hash_map::Keys, HashMap};
 use std::fmt::{self, Debug};
 use std::hash::Hash;
 
@@ -289,12 +289,12 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
     /// let mut map = MultiKeyMap::new();
     /// map.insert("key1", "value1");
     /// map.insert_alias(&"key1", "alias1");
-    /// let mut keys = map.keys();
+    /// let mut keys: Vec<_> = map.keys().cloned().collect();
     /// keys.sort();
     /// assert_eq!(keys, vec!["alias1", "key1"]);
     /// ```
-    pub fn keys(&self) -> Vec<K> {
-        self.key_map.keys().cloned().collect()
+    pub fn keys(&self) -> Keys<'_, K, usize> {
+        self.key_map.keys()
     }
 
     /// Checks if a key exists in the map.
