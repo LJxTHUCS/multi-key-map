@@ -153,7 +153,7 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
                 self.values.swap_remove(index);
                 // Update the indices for the remaining values
                 if index != self.values.len() {
-                    // Last index is swaped to the removed index
+                    // Last index is swapped to the removed index
                     let last_value_keys = self
                         .key_map
                         .iter()
@@ -198,21 +198,20 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
                 .iter()
                 .filter_map(|(k, &v)| if v == index { Some(k.clone()) } else { None })
                 .collect();
-
             for k in keys_to_remove {
                 self.key_map.remove(&k);
             }
             if index != self.values.len() {
-                // Update the index for the value that was moved
-                let last_index = self.values.len();
-                if let Some(last_key) = self.key_map.iter().find_map(|(k, &v)| {
-                    if v == last_index {
-                        Some(k.clone())
-                    } else {
-                        None
-                    }
-                }) {
-                    self.key_map.insert(last_key, index);
+                // Last index is swapped to the removed index
+                let last_value_keys = self
+                    .key_map
+                    .iter()
+                    .filter(|(_, &v)| v == self.values.len())
+                    .map(|(k, _)| k.clone())
+                    .collect::<Vec<_>>();
+                // Update the index for the keys
+                for k in last_value_keys {
+                    self.key_map.insert(k, index);
                 }
             }
             Some(value)
@@ -250,6 +249,34 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
         })
     }
 
+    /// Checks if two keys point to the same value.
+    ///
+    /// Returns `true` if both keys point to the same value, otherwise returns `false`.
+    ///
+    /// # Arguments
+    ///
+    /// * `key1` - The first key to check.
+    /// * `key2` - The second key to check.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use multi_key_map::MultiKeyMap;
+    ///
+    /// let mut map = MultiKeyMap::new();
+    /// map.insert("key1", "value1");
+    /// map.insert_alias(&"key1", "key2");
+    /// assert!(map.are_aliases(&"key1", &"key2"));
+    /// assert!(!map.are_aliases(&"key1", &"key3"));
+    /// ```
+    pub fn are_aliases(&self, key1: &K, key2: &K) -> bool {
+        if let (Some(&index1), Some(&index2)) = (self.key_map.get(key1), self.key_map.get(key2)) {
+            index1 == index2
+        } else {
+            false
+        }
+    }
+
     /// Retrieves all keys in the map.
     ///
     /// Returns a vector of keys.
@@ -262,8 +289,9 @@ impl<K: Eq + Hash + Clone, V> MultiKeyMap<K, V> {
     /// let mut map = MultiKeyMap::new();
     /// map.insert("key1", "value1");
     /// map.insert_alias(&"key1", "alias1");
-    /// let keys = map.keys();
-    /// assert_eq!(keys, vec!["key1", "alias1"]);
+    /// let mut keys = map.keys();
+    /// keys.sort();
+    /// assert_eq!(keys, vec!["alias1", "key1"]);
     /// ```
     pub fn keys(&self) -> Vec<K> {
         self.key_map.keys().cloned().collect()
